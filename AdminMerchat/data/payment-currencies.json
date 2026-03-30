@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "updatedAt": "2026-03-12T00:00:00.000Z",
+  "currencies": [
+    {
+      "id": "system-usdt",
+      "symbol": "USDT",
+      "name": "Tether USDt",
+      "coingeckoId": "tether",
+      "usdtRate": "1",
+      "isActive": true,
+      "isSystem": true,
+      "createdAt": "2026-03-12T00:00:00.000Z",
+      "updatedAt": "2026-03-12T00:00:00.000Z",
+      "lastRateUpdatedAt": "2026-03-12T00:00:00.000Z"
+    },
+    {
+      "id": "system-usdc",
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "coingeckoId": "usd-coin",
+      "usdtRate": "0",
+      "isActive": true,
+      "isSystem": true,
+      "createdAt": "2026-03-12T00:00:00.000Z",
+      "updatedAt": "2026-03-12T00:00:00.000Z",
+      "lastRateUpdatedAt": null
+    },
+    {
+      "id": "system-eth",
+      "symbol": "ETH",
+      "name": "Ethereum",
+      "coingeckoId": "ethereum",
+      "usdtRate": "0",
+      "isActive": true,
+      "isSystem": true,
+      "createdAt": "2026-03-12T00:00:00.000Z",
+      "updatedAt": "2026-03-12T00:00:00.000Z",
+      "lastRateUpdatedAt": null
+    }
+  ]
+}

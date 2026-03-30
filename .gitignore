@@ -1,0 +1,117 @@
+# =========================
+# GENERAL
+# =========================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+# =========================
+# ENV FILES
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# NODE.JS
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# BUILD OUTPUTS
+# =========================
+dist/
+build/
+out/
+.next/
+.cache/
+coverage/
+
+# =========================
+# TYPESCRIPT
+# =========================
+*.tsbuildinfo
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+venv/
+.env/
+.venv/
+
+# =========================
+# GO
+# =========================
+bin/
+pkg/
+
+# =========================
+# JAVA
+# =========================
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# =========================
+# IDE / EDITOR
+# =========================
+.vscode/
+.idea/
+*.code-workspace
+
+# =========================
+# OS FILES
+# =========================
+*.lock
+*.pid
+
+# =========================
+# DOCKER
+# =========================
+.dockerignore
+
+# =========================
+# TEST / COVERAGE
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# MONOREPO SPECIFIC
+# =========================
+# Ignore all node_modules in subfolders
+**/node_modules/
+
+# Ignore all build folders recursively
+**/dist/
+**/build/
+**/.next/
+**/coverage/
+
+# Ignore env files in all folders
+**/.env
+
+# =========================
+# DATABASE
+# =========================
+*.db
+*.sqlite
+
+# =========================
+# MISC
+# =========================
+*.tgz
+*.zip

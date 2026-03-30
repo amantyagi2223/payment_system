@@ -1,0 +1,461 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Merchant {
+  id            String                 @id @default(uuid())
+  email         String                 @unique
+  name          String
+  password      String
+  apiKey        String                 @unique
+  webhookUrl    String?
+  createdAt     DateTime               @default(now())
+  isActive      Boolean                @default(true)
+  wallets       CustomerWallet[]
+  invoices      Invoice[]
+  payoutWallets MerchantPayoutWallet[]
+  orders        Order[]
+  products      Product[]
+  webhookEvents WebhookEvent[]
+
+  @@index([isActive])
+}
+
+model BlockchainNetwork {
+  id              String                 @id @default(uuid())
+  name            String
+  chainId         BigInt                 @unique
+  rpcUrl          String
+  isActive        Boolean                @default(true)
+  createdAt       DateTime               @default(now())
+  code            String?                @unique
+  symbol          String?
+  adminFeeWallets AdminFeeWallet?
+  adminGasWallets AdminGasWallet?
+  wallets         CustomerWallet[]
+  payoutWallets   MerchantPayoutWallet[]
+  tokens          NetworkToken[]
+  payments        PaymentTransaction[]
+}
+
+model Customer {
+  id                String            @id @default(uuid())
+  name              String            @default("Customer")
+  email             String            @unique
+  password          String
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  customerAddresses CustomerAddress[]
+  chatSessions      CustomerChatSession[]
+  wallets           CustomerWallet[]
+  orders            Order[]
+
+  @@index([email])
+  @@index([isActive])
+}
+
+model CustomerChatSession {
+  id         String                @id @default(uuid())
+  customerId String
+  title      String?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  customer   Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages   CustomerChatMessage[]
+
+  @@index([customerId, updatedAt])
+}
+
+model CustomerChatMessage {
+  id        String              @id @default(uuid())
+  sessionId String
+  role      ChatRole
+  content   String
+  sources   Json?
+  createdAt DateTime            @default(now())
+  session   CustomerChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model SupportKnowledgeEntry {
+  id             String                     @id @default(uuid())
+  title          String
+  slug           String                     @unique
+  content        String
+  sourceType     SupportKnowledgeSourceType @default(FAQ)
+  sourcePath     String?
+  keywords       String[]                   @default([])
+  embedding      Json?
+  embeddingModel String?
+  isActive       Boolean                    @default(true)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  @@index([isActive, updatedAt])
+  @@index([sourceType, isActive])
+}
+
+model CustomerWallet {
+  id         String            @id @default(uuid())
+  address    String
+  privateKey String?
+  merchantId String?
+  customerId String?
+  networkId  String
+  isUsed     Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  customer   Customer?         @relation(fields: [customerId], references: [id])
+  merchant   Merchant?         @relation(fields: [merchantId], references: [id])
+  network    BlockchainNetwork @relation(fields: [networkId], references: [id])
+  invoices   Invoice[]
+
+  @@unique([networkId, address])
+  @@index([merchantId, networkId])
+  @@index([customerId, networkId])
+  @@index([isUsed])
+  @@index([networkId])
+}
+
+model Product {
+  id                String            @id @default(uuid())
+  name              String
+  description       String
+  price             Decimal           @db.Decimal(18, 8)
+  mrp               Decimal           @default(0) @db.Decimal(18, 8)
+  salePrice         Decimal           @default(0) @db.Decimal(18, 8)
+  deliveryFee       Decimal           @default(0) @db.Decimal(18, 8)
+  currency          String
+  quantity          Int               @default(0)
+  lowStockThreshold Int               @default(5)
+  merchantId        String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  orderItems        OrderItem[]       @relation("ProductOrderItems")
+  merchant          Merchant          @relation(fields: [merchantId], references: [id])
+  images            ProductImage[]
+  oldOrders         Order[]           @relation("OldProductOrders")
+  categories        ProductCategory[] @relation("ProductToProductCategory")
+
+  @@index([merchantId])
+  @@index([merchantId, quantity])
+}
+
+model ProductCategory {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[] @relation("ProductToProductCategory")
+}
+
+model ProductImage {
+  id        String    @id @default(uuid())
+  productId String
+  url       String
+  type      MediaType @default(IMAGE)
+  isPrimary Boolean   @default(false)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model OrderItem {
+  id              String          @id @default(uuid())
+  orderId         String
+  productId       String
+  quantity        Int             @default(1)
+  priceAtPurchase Decimal         @db.Decimal(18, 8)
+  subtotal        Decimal         @db.Decimal(18, 8)
+  status          OrderItemStatus @default(PENDING)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  order           Order           @relation("OrderOrderItems", fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product         @relation("ProductOrderItems", fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Invoice {
+  id         String               @id @default(uuid())
+  merchantId String
+  walletId   String
+  amount     Decimal              @db.Decimal(18, 8)
+  currency   String
+  status     InvoiceStatus        @default(PENDING)
+  expiresAt  DateTime
+  paidAt     DateTime?
+  createdAt  DateTime             @default(now())
+  merchant   Merchant             @relation(fields: [merchantId], references: [id])
+  wallet     CustomerWallet       @relation(fields: [walletId], references: [id])
+  order      Order?
+  payments   PaymentTransaction[]
+  webhooks   WebhookEvent[]
+
+  @@index([merchantId, status, createdAt])
+  @@index([walletId])
+}
+
+model Order {
+  id                String           @id @default(uuid())
+  customerId        String
+  deliveryAddressId String?
+  merchantId        String
+  invoiceId         String?          @unique
+  idempotencyKey    String?
+  totalAmount       Decimal          @db.Decimal(18, 8)
+  paymentAmount     Decimal?         @db.Decimal(18, 8)
+  paymentCurrency   String?
+  orderValueUsdt    Decimal?         @db.Decimal(18, 8)
+  status            OrderStatus      @default(CREATED)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  payoutStatus      PayoutStatus     @default(NOT_STARTED)
+  payoutTxHash      String?
+  gasFundingTxHash  String?
+  payoutError       String?
+  payoutAddress     String?
+  payoutCompletedAt DateTime?
+  customer          Customer         @relation(fields: [customerId], references: [id])
+  deliveryAddress   CustomerAddress? @relation(fields: [deliveryAddressId], references: [id])
+  invoice           Invoice?         @relation(fields: [invoiceId], references: [id])
+  merchant          Merchant         @relation(fields: [merchantId], references: [id])
+  items             OrderItem[]      @relation("OrderOrderItems")
+  oldProducts       Product[]        @relation("OldProductOrders")
+
+  @@unique([customerId, idempotencyKey])
+  @@index([customerId])
+  @@index([merchantId])
+  @@index([merchantId, payoutStatus])
+}
+
+model PaymentTransaction {
+  id              String            @id @default(uuid())
+  txHash          String
+  fromAddress     String
+  toAddress       String
+  amount          Decimal           @db.Decimal(18, 8)
+  rawAmount       String?
+  tokenId         String?
+  tokenSymbol     String?
+  tokenAddress    String?
+  isTokenTransfer Boolean           @default(false)
+  confirmations   Int               @default(0)
+  networkId       String
+  invoiceId       String?
+  status          PaymentStatus     @default(PENDING)
+  detectedAt      DateTime          @default(now())
+  confirmedAt     DateTime?
+  invoice         Invoice?          @relation(fields: [invoiceId], references: [id])
+  network         BlockchainNetwork @relation(fields: [networkId], references: [id])
+  token           NetworkToken?     @relation(fields: [tokenId], references: [id])
+
+  @@unique([networkId, txHash])
+  @@index([invoiceId])
+  @@index([tokenId])
+  @@index([status, detectedAt])
+}
+
+model WebhookEvent {
+  id         String        @id @default(uuid())
+  merchantId String
+  invoiceId  String
+  payload    Json
+  status     WebhookStatus @default(PENDING)
+  retryCount Int           @default(0)
+  createdAt  DateTime      @default(now())
+  invoice    Invoice       @relation(fields: [invoiceId], references: [id])
+  merchant   Merchant      @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId, status, createdAt])
+  @@index([invoiceId])
+}
+
+model AdminAccount {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model MerchantPayoutWallet {
+  id           String                      @id @default(uuid())
+  merchantId   String
+  networkId    String
+  address      String
+  label        String?
+  isActive     Boolean                     @default(true)
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  merchant     Merchant                    @relation(fields: [merchantId], references: [id])
+  network      BlockchainNetwork           @relation(fields: [networkId], references: [id])
+  tokenConfigs MerchantPayoutWalletToken[]
+
+  @@unique([merchantId, networkId])
+  @@index([merchantId, isActive])
+  @@index([networkId, isActive])
+}
+
+model NetworkToken {
+  id              String                      @id @default(uuid())
+  networkId       String
+  symbol          String
+  name            String
+  decimals        Int
+  contractAddress String?
+  isNative        Boolean                     @default(false)
+  isActive        Boolean                     @default(true)
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  payoutWallets   MerchantPayoutWalletToken[]
+  network         BlockchainNetwork           @relation(fields: [networkId], references: [id])
+  payments        PaymentTransaction[]
+
+  @@unique([networkId, symbol])
+  @@index([networkId, isActive])
+}
+
+model MerchantPayoutWalletToken {
+  id             String               @id @default(uuid())
+  walletId       String
+  tokenId        String
+  receiveAddress String
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  token          NetworkToken         @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  wallet         MerchantPayoutWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, tokenId])
+  @@index([walletId, isActive])
+  @@index([tokenId, isActive])
+}
+
+model AdminGasWallet {
+  id         String            @id @default(uuid())
+  networkId  String            @unique
+  address    String
+  privateKey String
+  isActive   Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  network    BlockchainNetwork @relation(fields: [networkId], references: [id])
+
+  @@index([isActive])
+}
+
+model AdminFeeWallet {
+  id         String            @id @default(uuid())
+  networkId  String            @unique
+  address    String
+  privateKey String
+  isActive   Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  network    BlockchainNetwork @relation(fields: [networkId], references: [id])
+
+  @@index([isActive])
+}
+
+model CustomerAddress {
+  id          String      @id @default(uuid())
+  customerId  String
+  name        String
+  street1     String
+  street2     String?
+  city        String
+  state       String?
+  zipCode     String
+  country     String
+  lat         Float?
+  lng         Float?
+  addressType AddressType @default(HOME)
+  isDefault   Boolean     @default(false)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  customer    Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders      Order[]
+
+  @@unique([customerId, name, isDefault, isActive], name: "unique_default_address", map: "unique_default_address")
+  @@index([customerId, isDefault])
+  @@index([customerId, isActive])
+}
+
+enum OrderItemStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum WebhookStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum OrderStatus {
+  CREATED
+  PENDING_PAYMENT
+  PAID
+  FAILED
+  EXPIRED
+}
+
+enum PayoutStatus {
+  NOT_STARTED
+  PENDING
+  FAILED
+  COMPLETED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum AddressType {
+  HOME
+  WORK
+  OTHER
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+enum SupportKnowledgeSourceType {
+  FAQ
+  PAGE
+  POLICY
+  TROUBLESHOOTING
+}
